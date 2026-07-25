@@ -44,7 +44,53 @@ sealed class CharmedChainsIcon(BossModule module) : BossComponent(module)
         hints.GoalZones.Add(AIHints.GoalProximity(partner, 2f));
     }
 }
-sealed class CharmedChains(BossModule module) : Components.Chains(module, (uint)TetherID.CharmedChain);
+
+sealed class CharmedChains(BossModule module) : Components.Chains(module, (uint)TetherID.CharmedChain)
+{
+    private readonly Actor?[] _partner = new Actor?[PartyState.MaxAllies];
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
+    {
+        if (tether.ID == TID)
+        {
+            TethersAssigned = true;
+            var target = WorldState.Actors.Find(tether.Target);
+            if (target != null)
+            {
+                SetPartner(source.InstanceID, target);
+                SetPartner(target.InstanceID, source);
+            }
+        }
+    }
+
+    public override void OnUntethered(Actor source, in ActorTetherInfo tether)
+    {
+        if (tether.ID == TID)
+        {
+            SetPartner(source.InstanceID, null);
+            SetPartner(tether.Target, null);
+        }
+    }
+
+    private void SetPartner(ulong source, Actor? target)
+    {
+        var slot = Raid.FindSlot(source);
+        if (slot >= 0)
+        {
+            _partner[slot] = target;
+        }
+    }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (_partner[slot] is var partner && partner != null)
+        {
+            // chain roughly 24f + initial distance between players at start
+            // or better to assign near/far safe spots during burning gleam? how to assign prio?
+            hints.AddForbiddenZone(new SDCircle(partner.Position, 24f), WorldState.FutureTime(10d));
+            hints.AddForbiddenZone(new SDCircle(partner.Position, (partner.Position - actor.Position).Length() + 1f), WorldState.FutureTime(10d));
+        }
+    }
+}
 
 sealed class SimpleFableFlight(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.LeftFableflight,(uint)AID.RightFableflight], new AOEShapeCone(60f, 90f.Degrees()));
 
@@ -105,13 +151,15 @@ sealed class FellSpark(BossModule module) : Components.InterceptTetherStatus(mod
         if (_lastHit.InstanceID == actor.InstanceID)
         {
             // make space from center for other players to intercept
-            hints.AddForbiddenZone(new AOEShapeRect(4f, 3f, 4f), Arena.Center);
+            hints.AddForbiddenZone(new AOEShapeRect(3f, 6f, 3f), Arena.Center);
         }
         else
         {
             // move to intercept tether
             // prio people without status intercept 1st?
             hints.AddForbiddenZone(new SDInvertedRect(_lastHit.Position + (_lastHit.HitboxRadius + 0.1f) * _lastHit.DirectionTo(Module.PrimaryActor), Module.PrimaryActor.Position, 0.5f), Activation);
+            // add zone around player, too close and tether won't swap
+            hints.AddForbiddenZone(new SDCircle(_lastHit.Position, 2f), Activation);
         }
     }
 }
