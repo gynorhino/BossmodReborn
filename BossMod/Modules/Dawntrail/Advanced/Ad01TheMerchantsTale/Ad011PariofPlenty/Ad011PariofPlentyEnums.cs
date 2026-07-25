@@ -91,7 +91,7 @@ public enum TetherID : uint
 
 public enum IconID : uint
 {
-    _Gen_Icon_m0376trg_fire3_a0p = 97, // player->self
+    Chain = 97, // player->self
     _Gen_Icon_tank_lockonae_4m_5s_01t = 342, // player->self
     TurningRight = 624, // PariOfPlenty->self
     TurningLeft = 625, // PariOfPlenty->self

@@ -7,6 +7,7 @@ sealed class PariOfPlentyStates : StateMachineBuilder
             .ActivateOnEnter<HeatBurst>()
             .ActivateOnEnter<FireFlight>()
             .ActivateOnEnter<BurningGleam>()
+            .ActivateOnEnter<CharmedChainsIcon>()
             .ActivateOnEnter<CharmedChains>()
             .ActivateOnEnter<SimpleFableFlight>()
             .ActivateOnEnter<FireOfVictory>()
