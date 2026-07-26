@@ -110,8 +110,8 @@ sealed class CharmedChains(BossModule module) : Components.Chains(module, (uint)
                 var playerDist = actor.DistanceToPoint(Module.PrimaryActor.Position) * (actor.Role is Role.Tank or Role.Melee ? 1f : 50f);
                 var partnerDist = partner.DistanceToPoint(Module.PrimaryActor.Position) * (partner.Role is Role.Tank or Role.Melee ? 1f : 50f);
 
-                hints.AddForbiddenZone(new SDCircle(playerDist < partnerDist ? partner.Position : actor.Position, 15f), WorldState.FutureTime(10f));
-                hints.AddForbiddenZone(new SDCircle(playerDist < partnerDist ? partner.Position : actor.Position, (partner.Position - actor.Position).Length() + 1f), WorldState.FutureTime(10d));
+                hints.AddForbiddenZone(new SDCircle(playerDist < partnerDist ? partner.Position : actor.Position, 15f));
+                hints.AddForbiddenZone(new SDCircle(playerDist < partnerDist ? partner.Position : actor.Position, (partner.Position - actor.Position).Length() + 1f));
             }
         }
     }
@@ -189,11 +189,37 @@ sealed class FellSpark(BossModule module) : Components.InterceptTetherStatus(mod
     }
 }
 
-sealed class CurseOfCompanionshipSolitude(BossModule module) : Components.StatusStackSpread(module, (uint)SID.CurseOfCompanionship, (uint)SID.CurseOfSolitude, 15f, 15f);
+sealed class CurseOfCompanionshipSolitude(BossModule module) : Components.StatusStackSpread(module, (uint)SID.CurseOfCompanionship, (uint)SID.CurseOfSolitude, 15f, 15f)
+{
+    // 19s until mechanic resolves
+    // 9s left when baulbles appear, 8s cast time
+    // depending on safe zones, default AI stands in place and dies
+    private readonly BurningGleam _burningGleam = module.FindComponent<BurningGleam>()!;
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        // do spread/stack 1st, plenty of time to move if spread
+        // if baubles / burning gleam active, ignore spread/stack AI for a bit to get to safe spots
+        var count = _burningGleam.Casters.Count;
+
+        if (count > 0)
+        {
+            var caster = _burningGleam.ActiveCasters[0];
+            if (caster.Activation <= WorldState.FutureTime(4d))
+            {
+                base.AddAIHints(slot, actor, assignment, hints);
+            }
+        }
+        else
+        {
+            base.AddAIHints(slot, actor, assignment, hints);
+        }
+    }
+}
 
 sealed class SpurningFlames(BossModule module) : Components.RaidwideCast(module, (uint)AID.SpurningFlames);
 sealed class ImpassionedSpark(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ImpassionedSparks3, 8f);
-sealed class BurningPillar(BossModule module) : Components.SimpleAOEs(module,(uint)AID.BurningPillar, 10f);
+sealed class BurningPillar(BossModule module) : Components.SimpleAOEs(module, (uint)AID.BurningPillar, 10f);
 sealed class SparkPuddle(BossModule module) : Components.Voidzone(module, 10f, GetPuddles)
 {
     private static Actor[] GetPuddles(BossModule module)
