@@ -102,16 +102,27 @@ sealed class CharmedChains(BossModule module) : Components.Chains(module, (uint)
     {
         if (_partner[slot] is var partner && partner != null)
         {
-            // chain roughly 24f + initial distance between players at start
-            // assuming running duos; MT stays, other player moves
-            // prio based on distance if not MT? highly unlikely 2 players exact same distance from boss
+            // MT stays, others move
             if (Module.PrimaryActor.TargetID != actor.InstanceID)
             {
-                var playerDist = actor.DistanceToPoint(Module.PrimaryActor.Position) * (actor.Role is Role.Tank or Role.Melee ? 1f : 50f);
-                var partnerDist = partner.DistanceToPoint(Module.PrimaryActor.Position) * (partner.Role is Role.Tank or Role.Melee ? 1f : 50f);
+                // if partner is MT, move
+                if (Module.PrimaryActor.TargetID == partner.InstanceID)
+                {
+                    hints.AddForbiddenZone(new SDCircle(partner.Position, 15f));
+                    hints.AddForbiddenZone(new SDCircle(partner.Position, (partner.Position - actor.Position).Length() + 1f));
+                }
+                else
+                {
+                    // if partner melee or closer, move
+                    var playerDist = actor.DistanceToPoint(Module.PrimaryActor.Position) * (actor.Role is Role.Tank or Role.Melee ? 1f : 50f);
+                    var partnerDist = partner.DistanceToPoint(Module.PrimaryActor.Position) * (partner.Role is Role.Tank or Role.Melee ? 1f : 50f);
 
-                hints.AddForbiddenZone(new SDCircle(playerDist < partnerDist ? partner.Position : actor.Position, 15f));
-                hints.AddForbiddenZone(new SDCircle(playerDist < partnerDist ? partner.Position : actor.Position, (partner.Position - actor.Position).Length() + 1f));
+                    if (partnerDist < playerDist)
+                    {
+                        hints.AddForbiddenZone(new SDCircle(partner.Position, 15f));
+                        hints.AddForbiddenZone(new SDCircle(partner.Position, (partner.Position - actor.Position).Length() + 1f));
+                    }
+                }
             }
         }
     }
@@ -125,7 +136,7 @@ sealed class FellSpark(BossModule module) : Components.InterceptTetherStatus(mod
 {
     // status lasts 7s, roughly 4.5s between casts
     // if duo, try swapping at soon as status sticks
-    // casts how many times until mechanic finished?
+    // x4 until mechanic resolves?
 
     private Actor? _lastHit = null;
 
@@ -176,15 +187,15 @@ sealed class FellSpark(BossModule module) : Components.InterceptTetherStatus(mod
         if (_lastHit.InstanceID == actor.InstanceID)
         {
             // make space from center for other players to intercept
-            hints.AddForbiddenZone(new AOEShapeRect(3f, 6f, 3f), Arena.Center);
+            hints.AddForbiddenZone(new AOEShapeCircle(6f), Module.PrimaryActor.Position);
         }
         else
         {
-            // move to intercept tether
+            // move to intercept tether, how to ensure tether is taken?
             // prio people without status intercept 1st?
             hints.AddForbiddenZone(new SDInvertedRect(_lastHit.Position + (_lastHit.HitboxRadius + 0.1f) * _lastHit.DirectionTo(Module.PrimaryActor), Module.PrimaryActor.Position, 0.5f), Activation);
             // add zone around player, too close and tether won't swap
-            hints.AddForbiddenZone(new SDCircle(_lastHit.Position, 2f), Activation);
+            hints.AddForbiddenZone(new SDCircle(_lastHit.Position, 3f), Activation);
         }
     }
 }
