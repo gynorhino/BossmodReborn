@@ -48,6 +48,16 @@ sealed class CharmedChainsIcon(BossModule module) : BossComponent(module)
 sealed class CharmedChains(BossModule module) : Components.Chains(module, (uint)TetherID.CharmedChain)
 {
     private readonly Actor?[] _partner = new Actor?[PartyState.MaxAllies];
+    public override void AddHints(int slot, Actor actor, TextHints hints)
+    {
+        if (_partner[slot] != null)
+        {
+            hints.Add("Break the chains!");
+        }
+    }
+
+    public override PlayerPriority CalcPriority(int pcSlot, Actor pc, int playerSlot, Actor player, ref uint customColor) => _partner[pcSlot] == player ? PlayerPriority.Danger : PlayerPriority.Irrelevant;
+
     public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         if (tether.ID == TID)
@@ -59,6 +69,14 @@ sealed class CharmedChains(BossModule module) : Components.Chains(module, (uint)
                 SetPartner(source.InstanceID, target);
                 SetPartner(target.InstanceID, source);
             }
+        }
+    }
+
+    public override void DrawArenaForeground(int pcSlot, Actor pc)
+    {
+        if (_partner[pcSlot] is var partner && partner != null)
+        {
+            Arena.AddLine(pc.Position, partner.Position);
         }
     }
 
@@ -85,9 +103,16 @@ sealed class CharmedChains(BossModule module) : Components.Chains(module, (uint)
         if (_partner[slot] is var partner && partner != null)
         {
             // chain roughly 24f + initial distance between players at start
-            // or better to assign near/far safe spots during burning gleam? how to assign prio?
-            hints.AddForbiddenZone(new SDCircle(partner.Position, 24f), WorldState.FutureTime(10d));
-            hints.AddForbiddenZone(new SDCircle(partner.Position, (partner.Position - actor.Position).Length() + 1f), WorldState.FutureTime(10d));
+            // assuming running duos; MT stays, other player moves
+            // prio based on distance if not MT? highly unlikely 2 players exact same distance from boss
+            if (Module.PrimaryActor.TargetID != actor.InstanceID)
+            {
+                var playerDist = actor.DistanceToPoint(Module.PrimaryActor.Position) * (actor.Role is Role.Tank or Role.Melee ? 1f : 50f);
+                var partnerDist = partner.DistanceToPoint(Module.PrimaryActor.Position) * (partner.Role is Role.Tank or Role.Melee ? 1f : 50f);
+
+                hints.AddForbiddenZone(new SDCircle(playerDist < partnerDist ? partner.Position : actor.Position, 15f), WorldState.FutureTime(10f));
+                hints.AddForbiddenZone(new SDCircle(playerDist < partnerDist ? partner.Position : actor.Position, (partner.Position - actor.Position).Length() + 1f), WorldState.FutureTime(10d));
+            }
         }
     }
 }
