@@ -251,7 +251,48 @@ sealed class SparkPuddle(BossModule module) : Components.Voidzone(module, 10f, G
     }
 }
 
-sealed class FireWell(BossModule module) : Components.StackWithIcon(module, (uint)IconID.Stack, (uint)AID.FireWell, 6f, 3d);
+sealed class FireWell(BossModule module) : Components.StackWithIcon(module, (uint)IconID.Stack, (uint)AID.FireWell, 6f, 3d)
+{
+    /*
+    // safe spot to avoid impassions sparks, puddles, and burning pillar take priority over stack
+    private readonly ImpassionedSpark _sparks = module.FindComponent<ImpassionedSpark>()!;
+    private readonly BurningPillar _pillars = module.FindComponent<BurningPillar>()!;
+    private readonly SparkPuddle _puddles = module.FindComponent<SparkPuddle>()!;
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (Stacks.Count == 0)
+            return;
+
+        var sparkActive = _sparks.ActiveCasters;
+        var sparkCount = sparkActive.Length;
+        var pillarActive = _pillars.ActiveCasters;
+        var pillarCount = pillarActive.Length;
+        var puddleActive = _puddles.ActiveAOEs(slot, actor);
+        var puddleCount = puddleActive.Length;
+
+        if (sparkCount == 0 && pillarCount == 0 && puddleCount == 0)
+        {
+            base.AddAIHints(slot, actor, assignment, hints);
+        }
+        else
+        {
+
+        }
+    }
+    */
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (ActiveStacks.Count == 0)
+            return;
+
+        var target = ActiveStacks[0].Target;
+        if (target.InstanceID != actor.InstanceID)
+        {
+            hints.GoalZones.Add(AIHints.GoalProximity(target.Position, 5f, 0.5f));
+        }
+    }
+}
 
 sealed class ScouringScorn(BossModule module) : Components.RaidwideCast(module, (uint)AID.ScouringScorn);
 
