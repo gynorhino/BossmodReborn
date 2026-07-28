@@ -17,6 +17,7 @@ sealed class Ad013LoneSwordmasterStates : StateMachineBuilder
             .ActivateOnEnter<EchoingHush>()
             .ActivateOnEnter<EchoingHushPuddle>()
             .ActivateOnEnter<EchoingEight>()
+            .ActivateOnEnter<MawOfTheWolf>()
             .ActivateOnEnter<StingOfTheScorpion>()
             .ActivateOnEnter<MaleficAlignment>()
             .ActivateOnEnter<WillOfTheUnderworld>()

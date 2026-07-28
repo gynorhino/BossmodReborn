@@ -1,4 +1,7 @@
-﻿namespace BossMod.Dawntrail.Advanced.Ad01MerchantsTale.Ad013LoneSwordmaster;
+﻿using TerraFX.Interop.Windows;
+using static FFXIVClientStructs.FFXIV.Client.UI.AddonAOZNotebook;
+
+namespace BossMod.Dawntrail.Advanced.Ad01MerchantsTale.Ad013LoneSwordmaster;
 
 sealed class DebuffTracker(BossModule module) : BossComponent(module)
 {
@@ -172,6 +175,7 @@ sealed class NearFarFromHeaven(BossModule module) : Components.UniformStackSprea
 {
     // icon before cast starts
     // target random if icon player dies? worth checking on update?
+    // always 2 people for stack?
     private Actor? _target = null;
     private DateTime _activation = default;
     public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
@@ -207,9 +211,29 @@ sealed class NearFarFromHeaven(BossModule module) : Components.UniformStackSprea
             Spreads.Clear();
         }
     }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        // if stacking and inside 1st, avoid AI from stacking inside AOE
+        // only 2 people for stack (cases when more needed?)
+        var stackCount = ActiveStacks.Count;
+        if (stackCount == 0)
+        {
+            base.AddAIHints(slot, actor, assignment, hints);
+        }
+        else
+        {
+            var target = ActiveStacks[0].Target;
+            if (target.InstanceID != actor.InstanceID)
+            {
+                hints.GoalZones.Add(AIHints.GoalProximity(target.Position, 3f, 0.5f));
+            }
+        }
+    }
 }
 sealed class WolfsCrossing(BossModule module) : Components.SimpleAOEs(module, (uint)AID.WolfsCrossing, new AOEShapeCross(40f, 4f));
 // 4 at a time, leaves puddles, happens 4 times, echoing eight happen at position of 1st 3 sets (up to 12 spots)
+// NA PF typically baits CW as a group to make echoing eight easier
 sealed class EchoingHush(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.EchoingHush, (uint)AID.EchoingHush1], 8f);
 sealed class EchoingHushPuddle(BossModule module) : Components.Voidzone(module, 8f, GetPuddles)
 {
@@ -232,6 +256,7 @@ sealed class EchoingHushPuddle(BossModule module) : Components.Voidzone(module, 
     }
 }
 sealed class EchoingEight(BossModule module) : Components.SimpleAOEs(module, (uint)AID.EchoingEight, new AOEShapeCross(40f, 4f));
+sealed class MawOfTheWolf(BossModule module) : Components.SimpleAOEs(module, (uint)AID.MawOfTheWolf, new AOEShapeRect(80f, 40f));
 sealed class StingOfTheScorpion(BossModule module) : Components.SingleTargetCast(module, (uint)AID.StingOfTheScorpion);
 sealed class WaitingWounds(BossModule module) : Components.SimpleAOEs(module, (uint)AID.WaitingWounds, 10f, 6);
 sealed class SteelsbreathReleaseArena(BossModule module) : Components.GenericAOEs(module)
@@ -272,6 +297,8 @@ sealed class MaleficPortent(BossModule module) : Components.CastCounter(module, 
     private readonly DebuffTracker _debuffs = module.FindComponent<DebuffTracker>()!;
     private readonly Dictionary<Actor, uint> _tethers = [];
     private BitMask _tethered = default;
+    private DateTime _activation = default;
+
     public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         if (tether.ID is not (uint)TetherID.MaleficN and not (uint)TetherID.MaleficE and not (uint)TetherID.MaleficW and not (uint)TetherID.MaleficS)
@@ -283,6 +310,7 @@ sealed class MaleficPortent(BossModule module) : Components.CastCounter(module, 
 
         _tethers[source] = tether.ID;
         _tethered.Set(slot);
+        _activation = WorldState.FutureTime(7d);
     }
     public override void OnUntethered(Actor source, in ActorTetherInfo tether)
     {
@@ -298,6 +326,7 @@ sealed class MaleficPortent(BossModule module) : Components.CastCounter(module, 
 
         _tethered.Clear(slot);
         _tethers.Remove(source);
+        _activation = default;
     }
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
     {
@@ -444,10 +473,46 @@ sealed class MaleficPortent(BossModule module) : Components.CastCounter(module, 
 
         return true;
     }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        var tethers = _tethers.Keys.ToArray();
+        var count = tethers.Length;
+        if (count == 0)
+            return;
+
+        for (var i = 0; i < count; i++)
+        {
+            var player = tethers[i];
+
+            // if self tethered and unsafe direction, move away from boss so others can take tether
+            if (player.InstanceID == actor.InstanceID)
+            {
+                hints.AddForbiddenZone(new SDCircle(actor.Position, 6f));
+            }
+            else
+            {
+                // if tethered player and safe direction, stay away to not accidentally take tether
+                if (IsPlayerSafe(player, _tethers[player]))
+                {
+                    hints.AddForbiddenZone(new SDCircle(player.Position, 3f));
+                }
+                else
+                {
+                    // try to intercept unsafe tether, only try to intercept 1st instance
+                    hints.AddForbiddenZone(new SDInvertedRect(player.Position + (player.HitboxRadius + 0.1f) * player.DirectionTo(Module.PrimaryActor), Module.PrimaryActor.Position, 0.5f), _activation);
+                    hints.AddForbiddenZone(new SDCircle(player.Position, 3f), _activation);
+                    break;
+                }
+            }
+        }
+    }
 }
 sealed class MaleficAlignment(BossModule module) : Components.SimpleAOEs(module, (uint)AID.MaleficAlignment, new AOEShapeCone(40f, 45f.Degrees()))
 {
     // safe spot depends on player Malefic debuff
+    // NA PF cheesing 1 vuln stack 2min in to make echoing hush + will of the underworld easier
+    // if doing cheese strat, determine based on cast count?
     private readonly DebuffTracker _debuffs = module.FindComponent<DebuffTracker>()!;
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)

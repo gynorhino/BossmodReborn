@@ -13,6 +13,7 @@ sealed class AlluringOrder(BossModule module) : Components.StatusDrivenForcedMar
         // TODO: add AI hints so it doesn't run out of arena
         // each player has icon hydrobullets that resolve after end of forced move
         // would need to calculate expected end position of each player and check that we don't get clipped by their AOE
+        // assuming running duo as AI, MT go north and other go south
     }
 }
 sealed class TidalSpout(BossModule module) : Components.StackWithCastTargets(module, (uint)AID.Tidalspout, 6f, 1, 3)

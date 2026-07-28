@@ -134,7 +134,8 @@ sealed class FireOfVictory(BossModule module) : Components.SpreadFromCastTargets
 
 sealed class FellSpark(BossModule module) : Components.InterceptTetherStatus(module, (uint)AID.FellSpark, (uint)TetherID.FellSpark, (uint)SID.DarkResistanceDown)
 {
-    // status lasts 7s, roughly 4.5s between casts
+    // status lasts 7s, roughly 4.5s between casts as duo
+    // status duration scales with party size
     // if duo, try swapping at soon as status sticks
     // x4 until mechanic resolves?
 

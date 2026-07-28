@@ -62,7 +62,7 @@ public enum AID : uint
     _Weaponskill_SilentEight = 46677, // LoneSwordmaster->self, 4.0s cast, single-target
     ResoundingSilence = 46678, // Helper->player, no cast, range 8 circle
     _Weaponskill_MawOfTheWolf = 46679, // LoneSwordmaster->self, 3.4+1.6s cast, single-target
-    _Weaponskill_MawOfTheWolf1 = 46680, // Helper->self, 5.0s cast, range 80 width 80 rect
+    MawOfTheWolf = 46680, // Helper->self, 5.0s cast, range 80 width 80 rect
     SteelsbreathReleaseArena = 46681, // LoneSwordmaster->self, 5.0s cast, range 60 circle
     _Weaponskill_VanishingHorizon = 46682, // LoneSwordmaster->self, 4.0s cast, single-target
     _Weaponskill_SteelsbreathBonds = 46684, // LoneSwordmaster->self, no cast, single-target
