@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CriticalEngagement.CE202DoubledTrouble;
+﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CriticalEngagement.CE212DoubledTrouble;
 
 public enum OID : uint
 {
