@@ -17,7 +17,7 @@ public enum AID : uint
     _Ability_RiseOfTheFallen = 47174, // PhantomNecromancer->self, 3.0s cast, single-target
     ExplosionAOE = 47175, // 4BC2->self, 2.0s cast, range 8 circle
     ExplosionCross = 47176, // 4BC3->self, 4.0s cast, range 80 width 7 cross
-    _Ability_DarkFlare = 47182, // PhantomNecromancer->self, 5.0s cast, single-target
+    DarkFlare = 47182, // PhantomNecromancer->self, 5.0s cast, single-target
     _Spell_DarkFlare = 47183, // Helper->self, no cast, ???
     _Ability_ArcaneRevelation = 47179, // PhantomNecromancer->self, 3.0s cast, single-target
     Necrosurge = 47180, // Helper->self, 7.0s cast, range 70 width 12 rect
@@ -32,6 +32,7 @@ sealed class DarkII(BossModule module) : Components.SimpleAOEs(module, (uint)AID
 sealed class ExplosionAOE(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ExplosionAOE, 8f);
 sealed class ExplosionCross(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ExplosionCross, new AOEShapeCross(80f, 3.5f));
 sealed class Necrosurge(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Necrosurge, new AOEShapeRect(70f, 6f));
+sealed class DarkFlare(BossModule module) : Components.RaidwideCast(module, (uint)AID.DarkFlare);
 
 [SkipLocalsInit]
 sealed class PhantomNecromancerStates : StateMachineBuilder
@@ -42,7 +43,8 @@ sealed class PhantomNecromancerStates : StateMachineBuilder
             .ActivateOnEnter<DarkII>()
             .ActivateOnEnter<ExplosionAOE>()
             .ActivateOnEnter<ExplosionCross>()
-            .ActivateOnEnter<Necrosurge>();
+            .ActivateOnEnter<Necrosurge>()
+            .ActivateOnEnter<DarkFlare>();
     }
 }
 

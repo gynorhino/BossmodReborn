@@ -18,12 +18,12 @@ public enum AID : uint
     _Weaponskill_ = 48118, // 4D87->self, no cast, range ?-30 donut
     _AutoAttack_ = 50644, // Algol->player, no cast, single-target
     _Weaponskill_CursedScreech = 48100, // Algol->self, 5.0s cast, ???
-    _Weaponskill_CursedScreech1 = 48971, // Helper->self, 6.0s cast, ???
+    CursedScreech = 48971, // Helper->self, 6.0s cast, ???
     _Weaponskill_ShrillPeal = 50426, // Algol->self, 3.0s cast, ???
     _Weaponskill_ShrillPeal1 = 50427, // Helper->self, 4.0s cast, ???
     _Weaponskill_Inhale = 48101, // Algol->self, 2.0+1.0s cast, single-target
     _Weaponskill_Inhale1 = 48102, // Algol->self, no cast, single-target
-    _Weaponskill_Inhale2 = 48104, // 4D87->self, 3.5s cast, range 60 30.000-degree cone
+    Inhale = 48104, // 4D87->self, 3.5s cast, range 60 30.000-degree cone
     _Weaponskill_Inhale3 = 48103, // Helper->4C4D/4C4C, 0.7s cast, single-target
     DevourShort = 50469, // Helper->self, 6.8s cast, range 8 120.000-degree cone
     _Weaponskill_Regurgitonion = 48107, // Algol->location, no cast, single-target
@@ -64,17 +64,68 @@ public enum IconID : uint
     _Gen_Icon_d1004turning_right_c0p = 167, // Algol->self
 }
 
+sealed class CursedScreech(BossModule module) : Components.RaidwideCast(module, (uint)AID.CursedScreech);
+sealed class Inhale(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Inhale, new AOEShapeCone(60f, 15f.Degrees()));
 sealed class DevourShort(BossModule module) : Components.SimpleAOEs(module, (uint)AID.DevourShort, new AOEShapeCone(8f, 60f.Degrees()));
 sealed class RottenOnion(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.RottenOnion1, (uint)AID.RottenOnion2], new AOEShapeCone(60f, 15f.Degrees()));
 sealed class RottenTomato(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.RottenTomato1, (uint)AID.RottenTomato2], new AOEShapeRect(50f, 3f));
 sealed class DevourLong(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.DevourLong1, (uint)AID.DevourLong2], new AOEShapeCone(12f, 60f.Degrees()));
 sealed class DigestedJuice(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.DigestedJuice1, (uint)AID.DigestedJuice2], new AOEShapeRect(40f, 25f));
 sealed class Malady(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Malady, 11f);
-sealed class SpinningInhale(BossModule module) : Components.GenericAOEs(module)
+//sealed class SpinningInhale(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SpinningInhale, new AOEShapeCone(30f, 15f.Degrees()));
+sealed class SpinningInhaleRest(BossModule module) : Components.GenericAOEs(module)
 {
+    // always starts at 0deg rotation? boss starting pos/rot not exact match with helper
+    // SpinningInhale 1-3 happens same time (2 = mobs hit, 1/3 = players hit?)
+    // starting at center with 0deg rotation, fires inhale every -15deg every 0.21s
+    // unknown inner radius of donut, use 7.5f boss hitbox?
+
+    private readonly List<AOEInstance> _aoes = [with(25)];
+    //private static readonly AOEShapeDonutSector sector = new(7.5f, 30f, 15f.Degrees());
+    private static readonly AOEShapeCone sector = new(30f, 15f.Degrees());
+
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        return [];
+        var count = _aoes.Count;
+        if (count == 0)
+            return [];
+        var max = count > 10 ? 10 : count;
+        var aoes = CollectionsMarshal.AsSpan(_aoes);
+        if (count > 1)
+        {
+            ref var aoe0 = ref aoes[0];
+            aoe0.Color = Colors.Danger;
+        }
+        return aoes[..max];
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.SpinningInhale)
+        {
+            var activation = Module.CastFinishAt(spell, 1.5d);
+            for (var i = 0; i < 25; i++)
+            {
+                _aoes.Add(new(sector, Arena.Center, (i * -15f).Degrees(), activation.AddSeconds(i * 0.21d)));
+            }
+        }
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (_aoes.Count > 0 && spell.Action.ID == (uint)AID._Weaponskill_SpinningInhale1)
+        {
+            _aoes.RemoveAt(0);
+        }
+    }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        base.AddAIHints(slot, actor, assignment, hints);
+        if (_aoes.Count > 0)
+        {
+            hints.AddForbiddenZone(new AOEShapeDonut(4f, 50f), Arena.Center);
+        }
     }
 }
 
@@ -84,13 +135,16 @@ sealed class AlgolStates : StateMachineBuilder
     public AlgolStates(BossModule module) : base(module)
     {
         TrivialPhase()
+            .ActivateOnEnter<CursedScreech>()
+            .ActivateOnEnter<Inhale>()
             .ActivateOnEnter<DevourShort>()
             .ActivateOnEnter<RottenOnion>()
             .ActivateOnEnter<RottenTomato>()
             .ActivateOnEnter<DevourLong>()
             .ActivateOnEnter<DigestedJuice>()
             .ActivateOnEnter<Malady>()
-            .ActivateOnEnter<SpinningInhale>();
+            //.ActivateOnEnter<SpinningInhale>()
+            .ActivateOnEnter<SpinningInhaleRest>();
     }
 }
 
@@ -112,7 +166,7 @@ NameID = 14790u,
 SortOrder = 6,
 PlanLevel = 0)]
 [SkipLocalsInit]
-public sealed class Algol(WorldState ws, Actor primary) : BossModule(ws, primary, new(765f, 0f), new ArenaBoundsCircle(20f))
+public sealed class Algol(WorldState ws, Actor primary) : BossModule(ws, primary, new(765f, 0f), new ArenaBoundsCircle(22f))
 {
-    protected override bool CheckPull() => base.CheckPull() && Raid.Player()!.Position.InCircle(Arena.Center, 20f);
+    protected override bool CheckPull() => base.CheckPull() && Raid.Player()!.Position.InCircle(Arena.Center, 22f);
 }

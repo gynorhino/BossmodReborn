@@ -15,7 +15,7 @@ public enum OID : uint
 public enum AID : uint
 {
     _AutoAttack_Attack = 49056, // Arbatel->player, no cast, single-target
-    _Weaponskill_KnowledgeLevelCorrection = 47296, // Arbatel->self, 5.0s cast, ???
+    KnowledgeLevelCorrection = 47296, // Arbatel->self, 5.0s cast, ???
     _Weaponskill_KnowledgeLevelCorrection1 = 47297, // Helper->self, no cast, ???
     _Weaponskill_Summon = 49055, // Arbatel->self, 3.0s cast, ???
     Summon = 47307, // Helper->location, 3.0s cast, range 4 circle
@@ -25,7 +25,7 @@ public enum AID : uint
     _Spell_PrimeKnowledgeLevelDeath2 = 50561, // Helper->self, 11.0s cast, range 25 ?-degree cone
     _Spell_KnowledgeLevel5Death1 = 50554, // Helper->self, 11.0s cast, range 25 ?-degree cone
     _Spell_KnowledgeLevel5Death2 = 47308, // Helper->self, 11.0s cast, range 25 180.000-degree cone
-    _Weaponskill_Marginalia = 47328, // Arbatel->self, 5.0s cast, single-target
+    Marginalia = 47328, // Arbatel->self, 5.0s cast, single-target
     _Weaponskill_Marginalia1 = 47327, // Helper->self, 5.0s cast, ???
     _Weaponskill_ = 48246, // Arbatel->location, no cast, single-target
     _Spell_KnowledgeLevel4Holy = 50559, // Helper->self, 11.0s cast, range 25 ?-degree cone
@@ -77,19 +77,64 @@ sealed class GetEffectiveKnowledgeLevel(BossModule module) : BossComponent(modul
 {
     public uint Level()
     {
+        // from ActorForayInfo? or something specific to player only?
         return 0;
     }
 }
 
+sealed class KnowledgeLevelCorrection(BossModule module) : Components.RaidwideCast(module, (uint)AID.KnowledgeLevelCorrection, "Raidwide + Know Lvl change");
+sealed class Marginalia(BossModule module) : Components.RaidwideCast(module, (uint)AID.Marginalia);
 sealed class Summon(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Summon, 4f);
-sealed class CoverToCover(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.CoverToCover1, (uint)AID.CoverToCover2], new AOEShapeCone(30f, 90f.Degrees()), 1);
-sealed class UnboundInk(BossModule module) : Components.SimpleAOEs(module, (uint)AID.UnboundInk, 6f);
+sealed class CoverToCover(BossModule module) : Components.GenericAOEs(module)
+{
+    private readonly List<AOEInstance> _aoes = [with(6)];
+    private static readonly AOEShapeCone cone = new(30f, 90f.Degrees());
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        var count = _aoes.Count;
+        if (count == 0)
+            return [];
+        var max = count > 2 ? 2 : count;
+        var aoes = CollectionsMarshal.AsSpan(_aoes);
+        if (count > 1)
+        {
+            ref var aoe0 = ref aoes[0];
+            aoe0.Color = Colors.Danger;
+        }
+        return aoes[..max];
+    }
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.CoverToCover1)
+        {
+            _aoes.Add(new(cone, caster.Position, caster.Rotation, Module.CastFinishAt(spell)));
+            _aoes.Add(new(cone, caster.Position, caster.Rotation + 180f.Degrees(), Module.CastFinishAt(spell, 2)));
+        }
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (_aoes.Count != 0)
+        {
+            switch (spell.Action.ID)
+            {
+                case (uint)AID.CoverToCover1:
+                case (uint)AID.CoverToCover2:
+                    _aoes.RemoveAt(0);
+                    break;
+            }
+        }
+    }
+}
+sealed class UnboundInk(BossModule module) : Components.SimpleAOEs(module, (uint)AID.UnboundInk, 9f);
 sealed class BookDrop(BossModule module) : Components.CastTowers(module, (uint)AID.BookDrop, 3f, 3);
-sealed class ThunderII(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ThunderII, new AOEShapeRect(50f, 2.5f));
+sealed class ThunderII(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ThunderII, new AOEShapeRect(50f, 2.5f), 10);
 sealed class FireII(BossModule module) : Components.SimpleAOEs(module, (uint)AID.FireII, new AOEShapeCone(60f, 22.5f.Degrees()));
 sealed class QuadRule(BossModule module) : Components.SimpleAOEs(module, (uint)AID.QuadRule, new AOEShapeCross(25f, 5f));
 sealed class HorizontalRule(BossModule module) : Components.SimpleAOEs(module, (uint)AID.HorizontalRule, new AOEShapeRect(50f, 3f));
-sealed class Blot(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Blot, 15f);
+sealed class Blot(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Blot, 15f, 6);
 
 [SkipLocalsInit]
 sealed class ArbatelStates : StateMachineBuilder
@@ -98,6 +143,8 @@ sealed class ArbatelStates : StateMachineBuilder
     {
         TrivialPhase()
             .ActivateOnEnter<GetEffectiveKnowledgeLevel>()
+            .ActivateOnEnter<KnowledgeLevelCorrection>()
+            .ActivateOnEnter<Marginalia>()
             .ActivateOnEnter<Summon>()
             .ActivateOnEnter<CoverToCover>()
             .ActivateOnEnter<UnboundInk>()
@@ -128,7 +175,7 @@ NameID = 14520u,
 SortOrder = 4,
 PlanLevel = 0)]
 [SkipLocalsInit]
-public sealed class Arbatel(WorldState ws, Actor primary) : BossModule(ws, primary, new(660f, 660f), new ArenaBoundsCircle(20f))
+public sealed class Arbatel(WorldState ws, Actor primary) : BossModule(ws, primary, new(659f, 659f), new ArenaBoundsCircle(22f))
 {
-    protected override bool CheckPull() => base.CheckPull() && Raid.Player()!.Position.InCircle(Arena.Center, 20f);
+    protected override bool CheckPull() => base.CheckPull() && Raid.Player()!.Position.InCircle(Arena.Center, 22f);
 }

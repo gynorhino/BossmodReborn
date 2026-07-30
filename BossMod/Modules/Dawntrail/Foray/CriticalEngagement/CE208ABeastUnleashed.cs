@@ -47,14 +47,6 @@ public enum SID : uint
     _Gen_DirectionalDisregard = 3808, // none->AtlasCarbuncle, extra=0x0
 }
 
-public enum IconID : uint
-{
-}
-
-public enum TetherID : uint
-{
-}
-
 sealed class SonicHowl(BossModule module) : Components.RaidwideCast(module, (uint)AID.SonicHowl);
 sealed class TopazRay(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.TopazRay1, (uint)AID.TopazRay2], 4f);
 /*
@@ -68,7 +60,7 @@ sealed class RubyReflection(BossModule module) : Components.GenericAOEs(module)
 sealed class ClawTail(BossModule module) : Components.GenericAOEs(module)
 {
     private readonly List<AOEInstance> _aoes = [with(2)];
-    private static readonly AOEShapeCone cone = new(40f, 90f.Degrees());
+    private static readonly AOEShapeCone cone = new(45f, 90f.Degrees());
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
@@ -101,6 +93,8 @@ sealed class ClawTail(BossModule module) : Components.GenericAOEs(module)
         {
             switch (spell.Action.ID)
             {
+                case (uint)AID.ClawToTail1:
+                case (uint)AID.TailToClaw1:
                 case (uint)AID.ClawToTail2:
                 case (uint)AID.TailToClaw2:
                     _aoes.RemoveAt(0);
