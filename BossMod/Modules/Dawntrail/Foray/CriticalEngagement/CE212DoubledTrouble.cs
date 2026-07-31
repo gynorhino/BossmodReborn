@@ -53,7 +53,7 @@ public enum SID : uint
 }
 
 sealed class AuraBurst(BossModule module) : Components.RaidwideCast(module, (uint)AID.AuraBurst);
-sealed class DualCut(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.DualCut1, (uint)AID.DualCut2], new AOEShapeCone(60f, 90f.Degrees()), 2);
+sealed class DualCut(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.DualCut1, (uint)AID.DualCut2], new AOEShapeCone(60f, 90f.Degrees()), 1);
 sealed class Graft(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Graft, 6f);
 sealed class MaliciousWeave1(BossModule module) : Components.SimpleAOEs(module, (uint)AID.MaliciousWeave1, 6f);
 sealed class MaliciousWeave2(BossModule module) : Components.SimpleAOEs(module, (uint)AID.MaliciousWeave2, 6f);

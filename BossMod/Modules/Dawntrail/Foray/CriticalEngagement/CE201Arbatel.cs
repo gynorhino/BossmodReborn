@@ -86,8 +86,33 @@ sealed class Summon(BossModule module) : Components.SimpleAOEs(module, (uint)AID
 sealed class Marginalia(BossModule module) : Components.RaidwideCast(module, (uint)AID.Marginalia);
 [SkipLocalsInit]
 sealed class UnboundInk(BossModule module) : Components.SimpleAOEs(module, (uint)AID.UnboundInk, 9f);
-[SkipLocalsInit]
-sealed class BookDrop(BossModule module) : Components.CastTowers(module, (uint)AID.BookDrop, 3f, 3);
+sealed class BookDrop(BossModule module) : Components.GenericTowersOpenWorld(module)
+{
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.BookDrop)
+        {
+            Towers.Add(new(caster.Position, 3f, 3, 6, activation: Module.CastFinishAt(spell)));
+        }
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.BookDrop)
+        {
+            var count = Towers.Count;
+            var pos = caster.Position;
+            for (var i = 0; i < count; ++i)
+            {
+                if (Towers[i].Position.AlmostEqual(pos, 1f))
+                {
+                    Towers.RemoveAt(i);
+                    return;
+                }
+            }
+        }
+    }
+}
 [SkipLocalsInit]
 sealed class ThunderII(BossModule module) : Components.SimpleAOEs(module, (uint)AID.ThunderII, new AOEShapeRect(50f, 2.5f), 10);
 [SkipLocalsInit]

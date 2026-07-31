@@ -81,7 +81,7 @@ sealed class Buffet(BossModule module) : Components.GenericKnockback(module)
 sealed class CyclonicRing(BossModule module) : Components.SimpleAOEs(module, (uint)AID.CyclonicRing, new AOEShapeDonut(5f, 60f));
 // icon appears 4s before resolving; BitingWind travels in 2 smaller circles, 11.9f / 19.9f, 45 degrees-ish
 sealed class TendonRipper(BossModule module) : Components.SimpleAOEs(module, (uint)AID.TendonRipper, new AOEShapeCross(60f, 4f));
-sealed class Aerosnare(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Aerosnare, new AOEShapeCone(60f, 30f.Degrees()));
+sealed class Aerosnare(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Aerosnare, new AOEShapeCone(60f, 30f.Degrees()), 3);
 sealed class BitingWind(BossModule module) : Components.GenericAOEs(module)
 {
     private const float Radius = 4f, Length = 7f;

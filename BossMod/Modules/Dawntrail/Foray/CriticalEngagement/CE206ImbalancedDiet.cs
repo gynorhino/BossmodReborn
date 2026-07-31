@@ -20,7 +20,7 @@ public enum AID : uint
     _Weaponskill_CursedScreech = 48100, // Algol->self, 5.0s cast, ???
     CursedScreech = 48971, // Helper->self, 6.0s cast, ???
     _Weaponskill_ShrillPeal = 50426, // Algol->self, 3.0s cast, ???
-    _Weaponskill_ShrillPeal1 = 50427, // Helper->self, 4.0s cast, ???
+    ShrillPeal = 50427, // Helper->self, 4.0s cast, ???
     _Weaponskill_Inhale = 48101, // Algol->self, 2.0+1.0s cast, single-target
     _Weaponskill_Inhale1 = 48102, // Algol->self, no cast, single-target
     Inhale = 48104, // 4D87->self, 3.5s cast, range 60 30.000-degree cone
@@ -65,6 +65,7 @@ public enum IconID : uint
 }
 
 sealed class CursedScreech(BossModule module) : Components.RaidwideCast(module, (uint)AID.CursedScreech);
+sealed class ShrillPeal(BossModule module) : Components.RaidwideCast(module, (uint)AID.ShrillPeal);
 sealed class Inhale(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Inhale, new AOEShapeCone(60f, 15f.Degrees()));
 sealed class DevourShort(BossModule module) : Components.SimpleAOEs(module, (uint)AID.DevourShort, new AOEShapeCone(8f, 60f.Degrees()));
 sealed class RottenOnion(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.RottenOnion1, (uint)AID.RottenOnion2], new AOEShapeCone(60f, 15f.Degrees()));
@@ -136,6 +137,7 @@ sealed class AlgolStates : StateMachineBuilder
     {
         TrivialPhase()
             .ActivateOnEnter<CursedScreech>()
+            .ActivateOnEnter<ShrillPeal>()
             .ActivateOnEnter<Inhale>()
             .ActivateOnEnter<DevourShort>()
             .ActivateOnEnter<RottenOnion>()
@@ -166,7 +168,7 @@ NameID = 14790u,
 SortOrder = 6,
 PlanLevel = 0)]
 [SkipLocalsInit]
-public sealed class Algol(WorldState ws, Actor primary) : BossModule(ws, primary, new(765f, 0f), new ArenaBoundsCircle(22f))
+public sealed class Algol(WorldState ws, Actor primary) : BossModule(ws, primary, new(765f, 0f), new ArenaBoundsCircle(23f))
 {
-    protected override bool CheckPull() => base.CheckPull() && Raid.Player()!.Position.InCircle(Arena.Center, 22f);
+    protected override bool CheckPull() => base.CheckPull() && Raid.Player()!.Position.InCircle(Arena.Center, 23f);
 }
