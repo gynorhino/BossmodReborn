@@ -172,11 +172,10 @@ sealed class RightLeftCombination(BossModule module) : Components.GenericAOEs(mo
         }
 
         var aoe = aoes[0];
-        aoe.Color = Colors.Danger;
         aoe.Risky = true;
         aoes[0] = aoe;
 
-        return CollectionsMarshal.AsSpan(aoes);
+        return CollectionsMarshal.AsSpan(aoes[..0]);
     }
 }
 

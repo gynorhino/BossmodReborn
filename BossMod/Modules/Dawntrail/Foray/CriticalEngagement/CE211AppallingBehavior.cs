@@ -8,8 +8,8 @@ public enum OID : uint
     Helper = 0x233C, // R0.500, x46, Helper type
     _Gen_Pallmagia = 0x4D91, // R1.000, x1
     EsotericIcon = 0x1EC02A, // R0.500, x4, EventObj type, EAnim used to display add AOE type
-    _Gen_Actor1ec02b = 0x1EC02B, // R0.500, x0 (spawn during fight), EventObj type, EAnim used for roulette
-    _Gen_Actor1ec02c = 0x1EC02C, // R0.500, x0 (spawn during fight), EventObj type, EAnim used for roulette
+    RouletteRing1 = 0x1EC02B, // R0.500, x0 (spawn during fight), EventObj type, EAnim used for roulette
+    RouletteRing2 = 0x1EC02C, // R0.500, x0 (spawn during fight), EventObj type, EAnim used for roulette
 }
 
 public enum AID : uint
@@ -33,28 +33,28 @@ public enum AID : uint
     OccultMissile = 49797, // Helper->location, 4.0s cast, range 6 circle
     _Spell_LilliputianLyric = 49791, // Pallmagia->self, 4.3+0.7s cast, single-target
     LilliputianLyric = 49792, // Helper->self, 5.0s cast, range 40 180.000-degree cone
-    _Spell_Roulette = 49787, // Pallmagia->self, 4.0s cast, single-target
-    _Spell_Roulette1 = 49788, // Helper->self, no cast, range 5 circle
-    _Spell_Roulette2 = 49790, // Helper->self, no cast, range ?-20 donut
-    _Spell_Roulette3 = 49789, // Helper->self, no cast, range ?-12 donut
-    _Spell_EsotericInstruction1 = 49774, // Pallmagia->self, 13.0s cast, single-target
-    _Spell_ReversePolarity = 49775, // Pallmagia->self, 5.0s cast, single-target
+    RouletteCast = 49787, // Pallmagia->self, 4.0s cast, single-target
+    RouletteCenter = 49788, // Helper->self, no cast, range 5 circle
+    RouletteInner = 49789, // Helper->self, no cast, range 5-12 donut sector
+    RouletteOuter = 49790, // Helper->self, no cast, range 12-20 donut sector
+    EsotericInstructionPolarity = 49774, // Pallmagia->self, 13.0s cast, single-target
+    ReversePolarityCast = 49775, // Pallmagia->self, 5.0s cast, single-target
     _Ability_1 = 49785, // 4D90->location, no cast, single-target
     _Ability_2 = 49786, // 4D90->location, no cast, single-target
     _Spell_MagicHammer = 49793, // Pallmagia->self, 3.0s cast, single-target
     MagicHammer = 49794, // Helper->location, 5.5s cast, range 8 circle
-    _Ability_3 = 49784, // 4D90->location, no cast, single-target
+    ReversePolaritySwap = 49784, // 4D90->location, no cast, single-target
 }
 
 public enum SID : uint
 {
-    _Gen_ = 2056, // none->Pallmagia/4D90, extra=0x485/0x486/0x490, duration until adds AOE
+    EsotericResolve = 2056, // none->Pallmagia/4D90, extra=0x485/0x486/0x490, duration until adds AOE
 }
 
 public enum TetherID : uint
 {
-    _Gen_Tether_chn_subbly_mgc01f = 14, // 4D90->Pallmagia
-    _Gen_Tether_chm_m0796_mgcchanbg_0a1 = 207, // 4D90->4D90
+    EsotericInstruction = 14, // 4D90->Pallmagia
+    ReversePolarity = 207, // 4D90->4D90
 }
 
 sealed class GreatWhirlwind(BossModule module) : Components.RaidwideCast(module, (uint)AID.GreatWhirlwind);
@@ -65,15 +65,20 @@ sealed class LilliputianLyric(BossModule module) : Components.SimpleAOEs(module,
 sealed class MagicHammer(BossModule module) : Components.SimpleAOEs(module, (uint)AID.MagicHammer, 8f, 8);
 sealed class EsotericInstruction(BossModule module) : Components.GenericAOEs(module)
 {
-    // track adds, handle reverse polarity if cast
-    // status duration until AOE goes off assigned to 0x4D90 (PallKeeper)
-    // EAnim to set mechanic assigned to 0x1EC029 (same position as PallKeeper)
-    // if gained status is less than 10s, boss not using Reverse Polarity
-    // EAnim happens at same position as PallKeeper
     private readonly List<AOEInstance> _aoes = [with(4)];
+    private readonly List<Esoteric> _esoteric = [with(4)];
+    private readonly AOEShapeCircle _circle = new(30f);
+    private readonly AOEShapeCone _cone = new(50f, 50f.Degrees());
+    private int _tetherCount = 0;
+    private bool _isActive = false;
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
+        if (!_isActive)
+        {
+            return [];
+        }
+
         var count = _aoes.Count;
         if (count == 0)
             return [];
@@ -91,14 +96,89 @@ sealed class EsotericInstruction(BossModule module) : Components.GenericAOEs(mod
     {
         if (actor.OID == (uint)OID.EsotericIcon)
         {
-            switch (state)
+            var mechanic = state switch
             {
-                case 0x00100020:
-                    _aoes.Add(new(new AOEShapeCircle(30f), actor.Position));
-                    break;
-                case 0x00010002:
-                    _aoes.Add(new(new AOEShapeCone(50f, 50f.Degrees()), actor.Position, actor.Rotation));
-                    break;
+                0x00010002 => Mechanic.BadBreath,
+                0x00100020 => Mechanic.Plaincracker,
+                _ => Mechanic.Invalid
+            };
+
+            if (mechanic == Mechanic.Invalid)
+                return;
+
+            var pallkeepers = Module.Enemies((uint)OID.Pallkeeper);
+            var count = pallkeepers.Count;
+
+            for (var i = 0; i < count; i++)
+            {
+                var pallkeeper = pallkeepers[i];
+                if (pallkeeper.Position.AlmostEqual(actor.Position, 1f))
+                {
+                    _esoteric.Add(new(pallkeeper, mechanic, pallkeeper.Position, pallkeeper.Rotation, default));
+                }
+            }
+        }
+    }
+
+    public override void OnTethered(Actor source, in ActorTetherInfo tether)
+    {
+        // always 2 tethers for reverse polarity?
+        if (tether.ID == (uint)TetherID.ReversePolarity)
+        {
+            var targetId = tether.Target;
+            var sourceIndex = -1;
+            var targetIndex = -1;
+
+            var count = _esoteric.Count;
+            for (var i = 0; i < count; i++)
+            {
+                var actor = _esoteric[i].Actor;
+                if (actor == source)
+                {
+                    sourceIndex = i;
+                }
+                if (actor.InstanceID == targetId)
+                {
+                    targetIndex = i;
+                }
+            }
+
+            var esoSource = _esoteric[sourceIndex];
+            var esoTarget = _esoteric[targetIndex];
+
+            (WPos Position, Angle Rotation) newSource = (esoTarget.Actor.Position, esoTarget.Actor.Rotation);
+            (WPos Position, Angle Rotation) newTarget = (source.Position, source.Rotation);
+
+            esoSource.Position = newSource.Position;
+            esoSource.Rotation = newSource.Rotation;
+            esoTarget.Position = newTarget.Position;
+            esoTarget.Rotation = newTarget.Rotation;
+
+            _tetherCount++;
+
+            if (_tetherCount == 2)
+            {
+                SetAOEs();
+            }
+        }
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID is (uint)AID.EsotericInstruction or (uint)AID.EsotericInstructionPolarity)
+        {
+            var isPolarity = spell.Action.ID == (uint)AID.EsotericInstructionPolarity;
+
+            var count = _esoteric.Count;
+            for (var i = 0; i < count; i++)
+            {
+                var eso = _esoteric[i];
+                eso.Activation = WorldState.FutureTime((isPolarity ? 6.6d : 0d) + 6d + i * 4.5d);
+            }
+
+            if (!isPolarity)
+            {
+                SetAOEs();
             }
         }
     }
@@ -112,18 +192,83 @@ sealed class EsotericInstruction(BossModule module) : Components.GenericAOEs(mod
                 case (uint)AID.BadBreathAdd:
                 case (uint)AID.PlaincrackerAdd:
                     _aoes.RemoveAt(0);
+                    _tetherCount = 0;
+                    _isActive = _aoes.Count != 0;
                     break;
             }
         }
     }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        if (_esoteric.Count > 0 && !_isActive)
+        {
+            hints.AddForbiddenZone(new SDDonut(Arena.Center, 5f, 20f));
+        }
+        base.AddAIHints(slot, actor, assignment, hints);
+    }
+
+    private void SetAOEs()
+    {
+        _aoes.Clear();
+        var count = _esoteric.Count;
+        for (var i = 0; i < count; i++)
+        {
+            var eso = _esoteric[i];
+            AOEShape shape = eso.Mechanic == Mechanic.BadBreath ? _cone : _circle;
+            _aoes.Add(new(shape, eso.Position, eso.Rotation, eso.Activation));
+        }
+        _esoteric.Clear();
+        _isActive = true;
+    }
+
+    private class Esoteric(Actor actor, Mechanic mechanic, WPos position, Angle rotation, DateTime activation)
+    {
+        public Actor Actor { get; set; } = actor;
+        public Mechanic Mechanic { get; set; } = mechanic;
+        public WPos Position { get; set; } = position;
+        public Angle Rotation { get; set; } = rotation;
+        public DateTime Activation { get; set; } = activation;
+    }
+
+    private enum Mechanic
+    {
+        Plaincracker,
+        BadBreath,
+        Invalid
+    }
 }
-/*
+
 sealed class Roulette(BossModule module) : Components.GenericAOEs(module)
 {
     // 2/6 close spots safe, 2/8 far sides safe, center always unsafe
-    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => throw new NotImplementedException();
+    // center 5f circle, inner 5-12 donut sector 120deg, outer 12-20 donut sector 135deg
+    // spawns 2 roulette actors, visibility set with EObjAnim 00010002
+    // after roulette finishes casting, ~6s in danger indicator, after ~10s total actual attacks (x1 center, x2 inner, x2 outer)
+    // spawned actors not always same initial rotation; affects start/end safe positions?
+    // outer always CW, inner always CCW?
+    /*
+roulettes cast #1 (actors spawned with 0deg rotation) (outer CW, inner CCW)
+outer -> X X X O (horizontal flat) (facing north)
+inner -> 0 X X (slightly skewed right 22.5deg)
+inner -> -120, 60
+outer -> -45, 135
+
+roulettes cast #2 (actors spawned with 90deg rotation) (outer CW, inner CCW)
+outer -> X O X X
+inner -> X X O (flat)
+inner -> -30, 150
+outer -> -135, 45
+
+finished
+outer -> X X X 0
+inner -> 0 X X (slightly skewed right)
+    */
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        return [];
+    }
 }
-*/
 
 [SkipLocalsInit]
 sealed class PallmagiaStates : StateMachineBuilder
@@ -137,7 +282,8 @@ sealed class PallmagiaStates : StateMachineBuilder
             .ActivateOnEnter<EsotericInstruction>()
             .ActivateOnEnter<OccultMissile>()
             .ActivateOnEnter<LilliputianLyric>()
-            .ActivateOnEnter<MagicHammer>();
+            .ActivateOnEnter<MagicHammer>()
+            .ActivateOnEnter<Roulette>();
     }
 }
 

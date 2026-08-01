@@ -84,7 +84,7 @@ sealed class TendonRipper(BossModule module) : Components.SimpleAOEs(module, (ui
 sealed class Aerosnare(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Aerosnare, new AOEShapeCone(60f, 30f.Degrees()), 3);
 sealed class BitingWind(BossModule module) : Components.GenericAOEs(module)
 {
-    private const float Radius = 4f, Length = 7f;
+    private const float Radius = 5f, Length = 5f;
     private static readonly AOEShapeCapsule capsule = new(Radius, Length);
     private readonly List<Actor> _winds = [with(2)];
 

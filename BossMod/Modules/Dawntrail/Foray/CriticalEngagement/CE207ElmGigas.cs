@@ -46,6 +46,7 @@ sealed class InspiritedCyclone(BossModule module) : Components.SimpleAOEs(module
 sealed class UnbowedSpirit(BossModule module) : Components.GenericAOEs(module) {
     private List<AOEInstance> aoes = [];
     private List<Actor> puddles = [];
+    // could change to capsule or arc capsule if can determine which mechanic is going to happen (cross = capsule, hurricane = arc capsule since moving in circles)
     private readonly AOEShapeCircle shape = new(6.0f); // Slightly bigger as they're constantly moving around the map
 
     public override void OnActorCreated(Actor actor) {
@@ -98,7 +99,7 @@ sealed class InspiritedImpact(BossModule module) : Components.GenericAOEs(module
         var incomingAOEs = aoes.OrderBy(a => a.Activation).Take(3).ToList();
         foreach (ref var aoe in CollectionsMarshal.AsSpan(incomingAOEs)) {
             aoe.Color = show == 0 ? Colors.Danger : Colors.AOE;
-            aoe.Risky = show == 0;
+            aoe.Risky = show <= 3;
             show++;
         }
 
