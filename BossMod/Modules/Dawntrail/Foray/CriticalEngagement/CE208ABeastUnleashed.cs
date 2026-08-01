@@ -63,7 +63,55 @@ sealed class RubyReflection(BossModule module) : Components.GenericAOEs(module)
     // RubyReflection1 shape is a backwards L, |___
     // maybe map topaz position and rotation to L-shape AOE?
     // maybe EObjAnim 0x1EC046 determines type? 9s before Reflective Coat starts casting, 0x01000200 for 1st one @119s (Reflection2), 0x00100020 for 2nd one @141s (Reflection1), 0x00100020 for 3rd one @241s (Reflection1), 0x00100020 for 4th one @260s (Reflection 1)
+    /*
+ReflectorSquare (sets 4 quadrants for reflection)
+- 0x00010002 @36.4
+- 0x00100020 @39.4
+- 0x00400080 @48.5 (same time as topaz starts casting)
 
+Reflector1 L (regular L shape when facing north)
+- 0x00010002 @116.7
+- 0x01000200 @119.7
+- 0x00010002 @131.58 (same time as topaz starts casting)
+- 0x10002000 @131.95
+- 0x00040080 @136.6 (after reflect resolves)
+
+----
+X-O-
+X-O-
+XXOO
+
+Reflector2 L (backward L shape when facing north)
+- 0x00100020 @141.7
+- 0x04000800 @153.8 (same time as topaz starts)
+
+OOXX
+O-X-
+O-X-
+----
+
+Reflector2 L (backward L shape but rotated CW when facing north)
+- 0x00010002 @235.7 (rotation modifier?)
+- 0x00100020 @238.7
+- 0x00010002 @250.6 (same time as topaz starts)
+- 0x04000800 @250.9
+- 0x00040008 @255.6 (after reflect resolves)
+
+X---
+XXX-
+O---
+OOO-
+
+Reflector2 L (backward L shape when facing north)
+- 0x00100020 @260.6
+- 0x04000800 @272.7 (same time as topaz starts)
+- 0x00040008 @277.5 (after reflect resolves)
+
+OOXX
+O-X-
+O-X-
+----
+    */
     private readonly List<AOEInstance> _aoes = [];
     private readonly List<Actor> _badTopaz = [];
     private Mechanic _mech = Mechanic.Invalid;
