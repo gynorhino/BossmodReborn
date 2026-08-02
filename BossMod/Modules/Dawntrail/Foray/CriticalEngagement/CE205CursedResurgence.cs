@@ -1,4 +1,5 @@
-﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE205CursedResurgence;
+﻿
+namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE205CursedResurgence;
 
 public enum OID : uint
 {
@@ -17,17 +18,17 @@ public enum AID : uint
 {
     _Ability_ = 48279, // 4D25->self, no cast, ???
     _AutoAttack_ = 48259, // ClaretDragon->player, no cast, single-target
-    _Spell_HowlingDarkness = 48277, // ClaretDragon->self, 5.0s cast, single-target
+    HowlingDarkness = 48277, // ClaretDragon->self, 5.0s cast, single-target
     _Spell_HowlingDarkness1 = 48278, // Helper->self, no cast, ???
-    _Spell_SnakingNecrobreath = 48260, // ClaretDragon->self, 6.0s cast, range 60 270.000-degree cone
+    SnakingNecrobreath = 48260, // ClaretDragon->self, 6.0s cast, range 60 270.000-degree cone
     _Spell_GraveMold = 48261, // ClaretDragon->self, 5.0s cast, single-target
-    _Spell_GraveMold1 = 48262, // Helper->self, 6.0s cast, range 8 circle
+    GraveMold = 48262, // Helper->self, 6.0s cast, range 8 circle
     _Ability_Necrohaze = 48263, // 4C47->self, no cast, range 5 circle
     _Ability_Soar = 50488, // ClaretDragon->self, 4.0s cast, single-target
     _Ability_1 = 48302, // ClaretDragon->self, no cast, single-target
     _Weaponskill_Cauterize = 48264, // ClaretDragon->self, 6.0s cast, single-target
-    _Weaponskill_Cauterize1 = 48265, // Helper->self, 7.0s cast, range 40 width 10 rect
-    _Ability_Catching = 48267, // 4C47->self, no cast, range 30 width 10 rect
+    Cauterize = 48265, // Helper->self, 7.0s cast, range 40 width 10 rect
+    Catching = 48267, // 4C47->self, no cast, range 30 width 10 rect
     _Weaponskill_ = 48266, // ClaretDragon->self, no cast, single-target
     _Ability_AetherialWard = 48271, // ClaretDragon->self, 4.0+0.5s cast, single-target
     _Spell_Necrohaze = 50484, // Helper->self, 4.0s cast, range 5 circle
@@ -35,8 +36,8 @@ public enum AID : uint
     _Ability_Necrohaze1 = 48269, // Helper->self, no cast, range 5 circle
     _Ability_Necrohaze2 = 48268, // Helper->location, no cast, range 5 circle
     _Ability_3 = 48276, // ClaretDragon->self, no cast, single-target
-    _Spell_BreathInThrees = 48270, // ClaretDragon->self, 5.0s cast, range 60 120.000-degree cone
-    _Spell_BreathInThrees1 = 48248, // ClaretDragon->self, 2.5s cast, range 60 120.000-degree cone
+    BreathInThrees1 = 48270, // ClaretDragon->self, 5.0s cast, range 60 120.000-degree cone
+    BreathInThrees2 = 48248, // ClaretDragon->self, 2.5s cast, range 60 120.000-degree cone
 }
 
 public enum SID : uint
@@ -49,12 +50,31 @@ public enum SID : uint
     _Gen_DirectionalInvincibility = 1125, // none->4C48, extra=0x0
 }
 
+sealed class HowlingDarkness(BossModule module) : Components.RaidwideCast(module, (uint)AID.HowlingDarkness);
+sealed class SnakingNecrobreath(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SnakingNecrobreath, new AOEShapeCone(60f, 135f.Degrees()));
+sealed class GraveMold(BossModule module) : Components.SimpleAOEs(module, (uint)AID.GraveMold, 8f);
+sealed class Cauterize(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Cauterize, new AOEShapeRect(40f, 5f));
+sealed class Catching(BossModule module) : Components.GenericAOEs(module)
+{
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        return [];
+    }
+}
+sealed class BreathInThrees(BossModule module) : Components.SimpleAOEGroups(module, [(uint)AID.BreathInThrees1, (uint)AID.BreathInThrees2], new AOEShapeCone(60f, 60f.Degrees()));
+
 [SkipLocalsInit]
 sealed class ClaretDragonStates : StateMachineBuilder
 {
     public ClaretDragonStates(BossModule module) : base(module)
     {
-        TrivialPhase();
+        TrivialPhase()
+            .ActivateOnEnter<HowlingDarkness>()
+            .ActivateOnEnter<SnakingNecrobreath>()
+            .ActivateOnEnter<GraveMold>()
+            .ActivateOnEnter<Cauterize>()
+            .ActivateOnEnter<Catching>()
+            .ActivateOnEnter<BreathInThrees>();
     }
 }
 

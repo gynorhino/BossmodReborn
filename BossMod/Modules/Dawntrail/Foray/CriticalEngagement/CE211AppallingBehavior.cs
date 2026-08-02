@@ -263,11 +263,74 @@ outer -> -135, 45
 finished
 outer -> X X X 0
 inner -> 0 X X (slightly skewed right)
+
+================================
+
+1st instance has both with rot90
+both 0x00010002 on visibility
+0x00040020 or 0x00040010 depending on CW or CWW
+spawn
+outer -> X O X X (flat)
+inner -> X X O (flat)
+resolve
+outer -> X X X O (slight tilt)
+inner -> O X X (slight tilt)
+
+2nd instance has both with rot0
+spawn
+outer -> X X X 0 (flat)
+inner -> 0 X X (slight tilt)
+resolve
+outer -> 0 X X X (slight tilt)
+inner -> X 0 X (slight tilt)
+
+outer = 90deg rot-ish
+inner = 120deg rot-ish
     */
+    private readonly List<AOEInstance> _aoes = [];
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
-        return [];
+        return CollectionsMarshal.AsSpan(_aoes);
     }
+
+    public override void OnActorCreated(Actor actor)
+    {
+        if (actor.OID is (uint)OID.RouletteRing1 or (uint)OID.RouletteRing2)
+        {
+            var act = WorldState.FutureTime(18d);
+            var outerDiff = -67.5f.Degrees();
+            var innerDiff = 120f.Degrees();
+            //var outerDiff = 0f.Degrees();
+            //var innerDiff = 0f.Degrees();
+            switch (actor.OID)
+            {
+                case (uint)OID.RouletteRing1:
+                    _aoes.Add(new(new AOEShapeCircle(5f), Arena.Center, activation: act));
+                    _aoes.Add(new(_outer, Arena.Center, actor.Rotation + outerDiff, act));
+                    _aoes.Add(new(_outer, Arena.Center, actor.Rotation + outerDiff + 180f.Degrees(), act));
+                    break;
+                case (uint)OID.RouletteRing2:
+                    _aoes.Add(new(_inner, Arena.Center, actor.Rotation + innerDiff, act));
+                    _aoes.Add(new(_inner, Arena.Center, actor.Rotation + innerDiff + 180f.Degrees(), act));
+                    break;
+            }
+        }
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        switch (spell.Action.ID)
+        {
+            case (uint)AID.RouletteCenter:
+            case (uint)AID.RouletteInner:
+            case (uint)AID.RouletteOuter:
+                _aoes.Clear();
+                break;
+        }
+    }
+
+    private readonly AOEShapeDonutSector _outer = new(12f, 20f, 67.5f.Degrees(), 22.5f.Degrees());
+    private readonly AOEShapeDonutSector _inner = new(5f, 12f, 60f.Degrees(), -60f.Degrees());
 }
 
 [SkipLocalsInit]
