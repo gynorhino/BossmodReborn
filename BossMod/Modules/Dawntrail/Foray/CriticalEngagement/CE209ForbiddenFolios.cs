@@ -1,4 +1,4 @@
-﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE201Arbatel;
+﻿namespace BossMod.Dawntrail.Foray.CriticalEngagement.CE209ForbiddenFolios;
 
 public enum OID : uint
 {
@@ -247,9 +247,9 @@ sealed class KnowledgeLevel(BossModule module) : Components.GenericAOEs(module)
 }
 
 [SkipLocalsInit]
-sealed class ArbatelStates : StateMachineBuilder
+sealed class CE209ForbiddenFoliosStates : StateMachineBuilder
 {
-    public ArbatelStates(BossModule module) : base(module)
+    public CE209ForbiddenFoliosStates(BossModule module) : base(module)
     {
         TrivialPhase()
             .ActivateOnEnter<KnowledgeLevelCorrection>()
@@ -269,11 +269,11 @@ sealed class ArbatelStates : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Contributed,
-    StatesType = typeof(ArbatelStates),
+    StatesType = typeof(CE209ForbiddenFoliosStates),
     ConfigType = null, // replace null with typeof(ArbatelConfig) if applicable
     ObjectIDType = typeof(OID),
-    ActionIDType = typeof(AID), // replace null with typeof(AID) if applicable
-    StatusIDType = typeof(SID), // replace null with typeof(SID) if applicable
+    ActionIDType = typeof(AID),
+    StatusIDType = typeof(SID),
     TetherIDType = null, // replace null with typeof(TetherID) if applicable
     IconIDType = null, // replace null with typeof(IconID) if applicable
     PrimaryActorOID = (uint)OID.Arbatel,
@@ -286,4 +286,7 @@ sealed class ArbatelStates : StateMachineBuilder
     SortOrder = 1,
     PlanLevel = 0)]
 [SkipLocalsInit]
-public sealed class Arbatel(WorldState ws, Actor primary) : BossModule(ws, primary, new(658.991f, 658.991f), new ArenaBoundsCircle(25f));
+public sealed class CE209ForbiddenFolios(WorldState ws, Actor primary) : BossModule(ws, primary, new(658.991f, 658.991f), new ArenaBoundsCircle(25f))
+{
+    protected override bool CheckPull() => base.CheckPull() && Raid.Player()!.Position.InCircle(Arena.Center, 25f);
+}
